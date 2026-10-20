@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Priyansh Runner</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Devanagari:wght@600;800&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#f6ecd2;--gold:#f2b632;--panel:rgba(22,30,20,.84);color-scheme:dark}
+html,body{height:100%;margin:0;background:#1d2a1f;overflow:hidden;font-family:"Noto Serif Devanagari",Georgia,serif;color:var(--ink);touch-action:none;-webkit-user-select:none;user-select:none}
+canvas{display:block}
+#hud{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:calc(env(safe-area-inset-top,0px) + 12px) 18px 0;font-size:22px;font-weight:800;pointer-events:none;text-shadow:0 2px 5px #000}
+#menu{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--panel);text-align:center;padding:24px}
+h1{font-size:46px;margin:0 0 6px;font-weight:800}
+p{max-width:32ch;line-height:1.6;margin:6px 0;opacity:.9}
+button{font:inherit;font-weight:800;font-size:22px;padding:12px 34px;border:0;border-radius:12px;background:var(--gold);color:#2a1d00;margin-top:20px}
+button:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.alt{background:transparent;color:var(--ink);border:2px solid var(--ink);margin-top:12px}
+#shop{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(22,30,20,.94);padding:20px;overflow:auto;touch-action:pan-y}
+.it{display:flex;justify-content:space-between;align-items:center;gap:14px;width:min(430px,90vw);padding:10px 0;border-bottom:1px solid rgba(246,236,210,.25);text-align:left}
+.it button{margin:0;font-size:18px;padding:8px 18px;flex:none}
+#sm{min-height:1.6em;color:var(--gold)}
+</style></head><body>
+<div id="hud"><span id="sc">0 m</span><span id="co">🪙 0</span></div>
+<div id="menu"><h1 id="t">Priyansh Runner</h1><p id="m">Priyansh found treasure in an ancient temple, and now the whole jungle is chasing him. Run!</p><p>← → change lane<br>↑ jump &nbsp; ↓ slide<br>(on phone: swipe)</p><p id="bk"></p><button id="go">Start running</button><button id="sh" class="alt">Shop 🛒</button></div><div id="shop"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const R=new THREE.WebGLRenderer({antialias:true});R.setPixelRatio(Math.min(devicePixelRatio,2));R.shadowMap.enabled=true;document.body.appendChild(R.domElement);
+const S=new THREE.Scene(),SKY=0xe9b96c;S.background=new THREE.Color(SKY);S.fog=new THREE.Fog(SKY,40,170);
+const C=new THREE.PerspectiveCamera(66,1,.1,260);
+function rs(){R.setSize(innerWidth,innerHeight);C.aspect=innerWidth/innerHeight;C.updateProjectionMatrix()}rs();addEventListener('resize',rs);
+S.add(new THREE.HemisphereLight(0xfff1c8,0x3b4a2c,.95));
+const sun=new THREE.DirectionalLight(0xffe0a0,.8);sun.position.set(6,14,8);sun.castShadow=true;S.add(sun);
+const sunBall=new THREE.Mesh(new THREE.SphereGeometry(22,16,16),new THREE.MeshBasicMaterial({color:0xfff2b0,fog:false}));sunBall.position.set(-30,40,-240);S.add(sunBall);
+const M=c=>new THREE.MeshLambertMaterial({color:c});
+const bx=(w,h,d,c,x,y,z)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),M(c));m.position.set(x,y,z);m.castShadow=true;return m};
+const rnd=(a,b)=>a+Math.random()*(b-a);
+
+// ---- Professor ----
+const P=new THREE.Group(),body=new THREE.Group();P.add(body);
+body.add(bx(.8,.95,.45,0xf5f5f0,0,1.15,0));      // lab coat
+body.add(bx(.3,.9,.47,0x3b5c9a,0,1.15,0));       // shirt/tie strip
+const head=new THREE.Group();head.position.y=1.9;body.add(head);
+head.add(bx(.5,.5,.5,0xe8b48a,0,0,0));
+head.add(bx(.18,.14,.05,0x111111,-.12,.05,-.26),bx(.18,.14,.05,0x111111,.12,.05,-.26),bx(.08,.04,.05,0x111111,0,.05,-.26)); // glasses
+for(let i=0;i<9;i++)head.add(bx(.2,.2,.2,0xf2f2f2,rnd(-.35,.35),rnd(.22,.4),rnd(-.25,.3)));  // wild hair
+head.add(bx(.3,.08,.05,0xdddddd,0,-.12,-.26)); // moustache
+function limb(x,y,c,w,h){const g=new THREE.Group();g.position.set(x,y,0);g.add(bx(w,h,.28,c,0,-h/2,0));body.add(g);return g}
+const aL=limb(-.52,1.55,0xf5f5f0,.22,.8),aR=limb(.52,1.55,0xf5f5f0,.22,.8),lL=limb(-.2,.7,0x4a3a2a,.28,.75),lR=limb(.2,.7,0x4a3a2a,.28,.75);
+body.add(bx(.5,.65,.15,0x8a5a2b,0,1.2,.3)); // backpack
+P.traverse(o=>{if(o.isMesh)o.userData.o=o.material.color.getHex()});
+const board=new THREE.Group();board.add(bx(1.1,.1,2.4,0x2e86de,0,.12,0),bx(1.12,.11,.4,0xffd23f,0,.12,-.9));
+for(const wx of[-.4,.4])for(const wz of[-.8,.8]){const w=new THREE.Mesh(new THREE.CylinderGeometry(.1,.1,.1,8),M(0x1a1a1a));w.rotation.z=Math.PI/2;w.position.set(wx,.05,wz);board.add(w)}
+P.add(board);board.visible=false;
+S.add(P);
+
+// ---- World ----
+const L=20,N=10,tiles=[];
+function tile(){const g=new THREE.Group();
+ const s=bx(9.4,.4,L,0x9a8a68,0,-.2,0);s.castShadow=false;s.receiveShadow=true;g.add(s);
+ for(let i=0;i<3;i++)g.add(bx(9.4,.02,.12,0x6b5d44,0,.01,rnd(-9,9)));
+ for(const sd of[-1,1]){
+  g.add(bx(.7,1,L,0x7d7058,sd*4.4,.5,0));
+  g.add(bx(14,.3,L,0x3f5a2a,sd*11.5,-.4,0));
+  if(Math.random()<.7){const z=rnd(-8,8);g.add(bx(1,4.5,1,0xa89878,sd*4.6,2.2,z),bx(1.2,.3,1.2,0x5d7a3a,sd*4.6,4.5,z))}
+  for(let k=0;k<3;k++){const x=sd*rnd(6.5,15),z=rnd(-9,9),h=rnd(2,3.5);
+   const t=new THREE.Mesh(new THREE.CylinderGeometry(.25,.4,h,6),M(0x5a3d22));t.position.set(x,h/2,z);g.add(t);
+   for(let j=0;j<2;j++){const c=new THREE.Mesh(new THREE.ConeGeometry(2-j*.6,2.4,7),M(j?0x2f7a35:0x23602b));c.position.set(x,h+.6+j*1.3,z);g.add(c)}}
+ }
+ return g}
+for(let i=0;i<N;i++){const t=tile();t.position.z=-i*L+L;S.add(t);tiles.push(t)}
+
+// ---- Game ----
+const lanes=[-2.2,0,2.2];let st='menu',speed,dist,coins,lane,px,py,vy,slide,objs=[],nextZ,best=0,t=0,crash=0;
+try{best=+localStorage.getItem('pr_best')||0}catch(e){}
+const coinGeo=new THREE.CylinderGeometry(.35,.35,.1,14),coinMat=new THREE.MeshLambertMaterial({color:0xf5c02a,emissive:0x6a4a00});
+function add(mesh,x,z,type,d){mesh.position.x=x;mesh.position.z=z;S.add(mesh);objs.push({m:mesh,x,t:type,d})}
+function spawn(){const z=-140,r=Math.random();
+ if(r<.5){const n=Math.random()<.5?1:2,set=[0,1,2].sort(()=>Math.random()-.5).slice(0,n);
+  set.forEach(i=>{const g=new THREE.Group();g.add(bx(1.8,1.6,1.2,0x7a5230,0,.8,0),bx(1.9,.15,1.3,0xc9a063,0,1.6,0),bx(.15,1.6,1.3,0xc9a063,0,.8,0));add(g,lanes[i],z,'b',.9)});
+  const free=[0,1,2].filter(i=>!set.includes(i))[0];coinRow(lanes[free],z,1,24)}
+ else if(r<.78){const l=new THREE.Mesh(new THREE.CylinderGeometry(.38,.38,7.6,10),M(0x5a3d22));l.rotation.z=Math.PI/2;l.position.y=.38;l.castShadow=true;add(l,0,z,'l',.6);coinRow(lanes[1],z+6,1.9)}
+ else{const g=new THREE.Group();g.add(bx(.7,3,.7,0xa89878,-3.6,1.5,0),bx(.7,3,.7,0xa89878,3.6,1.5,0),bx(8,.5,.7,0x6d8a4a,0,1.65,0));add(g,0,z,'a',.5);coinRow(lanes[Math.floor(rnd(0,3))],z+6)}}
+function coinRow(x,z,y=1,n=16){for(let i=0;i<n;i++){const c=new THREE.Mesh(coinGeo,coinMat);c.rotation.x=Math.PI/2;c.position.y=y;add(c,x,z-i*1.6,'c',.7)}}
+function reset(){objs.forEach(o=>S.remove(o.m));objs=[];speed=14;dist=0;coins=0;lane=1;px=0;py=0;vy=0;slide=0;nextZ=30;crash=0;P.rotation.set(0,0,0);body.scale.y=1;boardOn=hasBoard&&useBoard;shield=boardOn;board.visible=boardOn;inv=0;P.visible=true}
+function start(){reset();st='play';menu.style.display='none'}
+function die(){if(inv>0)return;if(shield){shield=false;boardOn=false;board.visible=false;inv=1.6;return}bank+=coins;save();bk.textContent='🪙 Total coins: '+bank;st='dead';crash=1;best=Math.max(best,Math.floor(dist));try{localStorage.setItem('pr_best',best)}catch(e){}
+ t_.textContent='Caught!';m_.textContent='You ran '+Math.floor(dist)+' m and collected '+coins+' coins. Best: '+best+' m';go.textContent='Run again';setTimeout(()=>menu.style.display='flex',700)}
+const menu=document.getElementById('menu'),t_=document.getElementById('t'),m_=document.getElementById('m'),go=document.getElementById('go'),sc=document.getElementById('sc'),co=document.getElementById('co');
+go.onclick=start;
+function act(a){if(st!=='play')return;
+ if(a==='L'&&lane>0)lane--;else if(a==='R'&&lane<2)lane++;
+ else if(a==='U'&&py<=.01){vy=11.5;slide=0}
+ else if(a==='D'){slide=.7;if(py>0)vy=-18}}
+addEventListener('keydown',e=>{const k={ArrowLeft:'L',a:'L',ArrowRight:'R',d:'R',ArrowUp:'U',w:'U',' ':'U',ArrowDown:'D',s:'D'}[e.key];if(k){e.preventDefault();act(k)}if((e.key==='Enter')&&st!=='play')start()});
+let tx,ty;addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY},{passive:true});
+addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;if(Math.max(Math.abs(dx),Math.abs(dy))<25)return;
+ Math.abs(dx)>Math.abs(dy)?act(dx>0?'R':'L'):act(dy<0?'U':'D')},{passive:true});
+
+let bank=0,owned={classic:1},skin='classic',hasBoard=false,useBoard=true,boardOn=false,shield=false,inv=0;
+try{const d=JSON.parse(localStorage.getItem('pr_save'));if(d){bank=d.bank||0;owned=d.owned||owned;skin=d.skin||skin;hasBoard=!!d.hasBoard;useBoard=d.useBoard!==false}}catch(e){}
+const save=()=>{try{localStorage.setItem('pr_save',JSON.stringify({bank,owned,skin,hasBoard,useBoard}))}catch(e){}};
+const SK={classic:['Classic Priyansh',0,{}],
+ninja:['Ninja Priyansh',60,{0xf5f5f0:0x1c1c24,0x3b5c9a:0xc0392b,0x4a3a2a:0x22222a,0xf2f2f2:0x15151a,0x8a5a2b:0x444455,0xdddddd:0x15151a}],
+explorer:['Explorer Priyansh',60,{0xf5f5f0:0xc2a15a,0x3b5c9a:0x3f7a3a,0x4a3a2a:0x6b4f2a,0xf2f2f2:0x8a6a3a,0x8a5a2b:0x2f5a30,0xdddddd:0x8a6a3a}],
+alien:['Alien Priyansh',120,{0xe8b48a:0x7fd66a,0xf5f5f0:0x6a4cc2,0x3b5c9a:0x2fe0c0,0xf2f2f2:0x3df0a0,0xdddddd:0x3df0a0}],
+gold:['King Priyansh',250,{0xf5f5f0:0xf2c230,0x3b5c9a:0xb0361f,0x4a3a2a:0x2a2a5a,0xf2f2f2:0xffe9a0,0x8a5a2b:0xc98a1a,0xdddddd:0xffe9a0}]};
+const shop=document.getElementById('shop'),bk=document.getElementById('bk');
+function applySkin(){const mp=SK[skin][2];P.traverse(o=>{if(o.isMesh&&o.userData.o!==undefined)o.material.color.setHex(mp[o.userData.o]!==undefined?mp[o.userData.o]:o.userData.o)})}
+function shopR(msg){let h='<h1>Shop</h1><p>🪙 '+bank+'</p><p id="sm">'+msg+'</p>';
+ for(const k in SK){const n=SK[k][0],pr=SK[k][1];h+='<div class="it"><span>'+n+'</span>'+(owned[k]?(skin===k?'<b>Equipped</b>':'<button data-a="eq" data-k="'+k+'">Equip</button>'):'<button data-a="buy" data-k="'+k+'">🪙 '+pr+'</button>')+'</div>'}
+ h+='<div class="it"><span>🛹 Skateboard<br><small>Saves you from one crash per run</small></span>'+(hasBoard?'<button data-a="tg">'+(useBoard?'On':'Off')+'</button>':'<button data-a="bb">🪙 100</button>')+'</div><button id="back">Back</button>';
+ shop.innerHTML=h}
+document.getElementById('sh').onclick=()=>{shopR('');menu.style.display='none';shop.style.display='flex'};
+shop.onclick=e=>{const b=e.target.closest('button');if(!b)return;const a=b.dataset.a,k=b.dataset.k;let m='';
+ if(b.id==='back'){shop.style.display='none';menu.style.display='flex';bk.textContent='🪙 Total coins: '+bank;return}
+ if(a==='buy'){if(bank>=SK[k][1]){bank-=SK[k][1];owned[k]=1;skin=k;applySkin();m='Bought!'}else m='Not enough coins'}
+ else if(a==='eq'){skin=k;applySkin()}
+ else if(a==='bb'){if(bank>=100){bank-=100;hasBoard=true;m='Skateboard unlocked!'}else m='Not enough coins'}
+ else if(a==='tg')useBoard=!useBoard;
+ save();shopR(m)};
+applySkin();bk.textContent='🪙 Total coins: '+bank;
+SK.gold[0]='King Priyansh';SK.gold[2]={0xf5f5f0:0xb0261f,0x3b5c9a:0xf2c230,0x4a3a2a:0x2a2a5a,0x8a5a2b:0xc98a1a,0xf2f2f2:0xffffff,0xdddddd:0xffffff};
+SK.robot=['Robot Priyansh',200,{0xe8b48a:0xaab4c0,0xf5f5f0:0x5d6672,0x3b5c9a:0xff8c1a,0x4a3a2a:0x3a3f48,0x8a5a2b:0x2e3238,0xf2f2f2:0x888888,0xdddddd:0x888888}];
+const accH=new THREE.Group(),accB=new THREE.Group();head.add(accH);body.add(accB);
+const A=(g,...a)=>{g.add(bx(...a))};
+const X={
+ninja:{s:[.92,1.05],ex(){A(accH,.56,.12,.56,0xc0392b,0,.14,0);A(accH,.12,.1,.5,0xc0392b,0,.12,.42)}},
+explorer:{s:[1.05,1],hh:1,ex(){A(accH,1,.06,1,0x6b4f2a,0,.28,0);A(accH,.5,.26,.5,0x8a6a3a,0,.42,0)}},
+alien:{s:[.9,1.15],hh:1,mh:1,ex(){for(const sx of[-.14,.14]){A(accH,.06,.4,.06,0x3df0a0,sx,.45,0);A(accH,.14,.14,.14,0xff5ac8,sx,.68,0)}}},
+robot:{s:[1.12,1.05],hh:1,mh:1,ex(){A(accH,.06,.35,.06,0x888888,0,.42,0);A(accH,.14,.14,.14,0xff3030,0,.64,0);A(accH,.5,.05,.05,0xff3030,0,0,-.27)}},
+gold:{s:[1.1,.98],hh:1,ex(){A(accH,.54,.14,.54,0xf2c230,0,.3,0);for(const sx of[-.2,0,.2])A(accH,.1,.14,.1,0xf2c230,sx,.43,0);A(accB,.9,1.25,.08,0xb0261f,0,1.15,.45)}}
+};
+const _a0=applySkin;applySkin=function(){_a0();const x=X[skin]||{},s=x.s||[1,1];P.scale.set(s[0],s[1],s[0]);
+P.traverse(o=>{if(o.isMesh&&o.userData.o===0xf2f2f2)o.visible=!x.hh;if(o.isMesh&&o.userData.o===0xdddddd)o.visible=!x.mh});
+[accH,accB].forEach(g=>{while(g.children.length)g.remove(g.children[0])});if(x.ex)x.ex()};
+applySkin();
+let last=performance.now();
+function loop(now){requestAnimationFrame(loop);const dt=Math.min((now-last)/1000,.05);last=now;t+=dt;
+ if(st==='play'){
+  speed=Math.min(14+dist*.012,32);dist+=speed*dt;
+  px+=(lanes[lane]-px)*Math.min(1,dt*14);
+  vy-=32*dt;py=Math.max(0,py+vy*dt);if(py===0&&vy<0)vy=0;
+  if(slide>0)slide-=dt;if(inv>0){inv-=dt;P.visible=inv<=0||Math.floor(t*14)%2==0}
+  nextZ-=speed*dt;if(nextZ<=0){spawn();nextZ=speed*rnd(1.0,1.5)+8}
+  for(let i=objs.length-1;i>=0;i--){const o=objs[i];o.m.position.z+=speed*dt;const z=o.m.position.z;
+   if(o.t==='c')o.m.rotation.z+=dt*4;
+   if(Math.abs(z)<o.d){
+    if(o.t==='c'){if(Math.abs(o.x-px)<1&&Math.abs(o.m.position.y-py-1)<1.3){S.remove(o.m);objs.splice(i,1);coins++;continue}}
+    else if(o.t==='b'&&Math.abs(o.x-px)<1.1&&py<1.5)die();
+    else if(o.t==='l'&&py<.6)die();
+    else if(o.t==='a'&&slide<=0)die()}
+   if(z>8){S.remove(o.m);objs.splice(i,1)}}
+  tiles.forEach(tl=>{tl.position.z+=speed*dt;if(tl.position.z>L*1.5)tl.position.z-=N*L});
+  const ph=t*speed*.6;lL.rotation.x=Math.sin(ph)*.9*(boardOn||py>0?.2:1);lR.rotation.x=-lL.rotation.x;aL.rotation.x=-Math.sin(ph)*.8;aR.rotation.x=Math.sin(ph)*.8;
+  body.position.y=(boardOn?.18:0)+(py>0||boardOn?0:Math.abs(Math.sin(ph))*.08);
+  body.scale.y+=((slide>0?.5:1)-body.scale.y)*Math.min(1,dt*20);
+  P.rotation.z=(lanes[lane]-px)*-.08;
+  sc.textContent=Math.floor(dist)+' m';co.textContent='🪙 '+coins;
+ }else if(st==='dead'&&crash>0){crash=Math.max(0,crash-dt*2);P.rotation.x=-(1-crash)*1.3}
+ else if(st==='menu'){tiles.forEach(tl=>{tl.position.z+=6*dt;if(tl.position.z>L*1.5)tl.position.z-=N*L});lL.rotation.x=Math.sin(t*8)*.8;lR.rotation.x=-lL.rotation.x;aL.rotation.x=-lL.rotation.x;aR.rotation.x=lL.rotation.x}
+ P.position.set(px,py,0);
+ C.position.set(px*.6,3.6+py*.3,6.2);C.lookAt(px*.4,1.4,-8);
+ R.render(S,C)}
+reset();requestAnimationFrame(loop);
+</script></body></html>
